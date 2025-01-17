@@ -294,15 +294,18 @@ new NodePreviewController(TextureMesh, {
 		let {mesh} = element;
 
 		if (Project.view_mode === 'solid') {
-			mesh.material = Canvas.solidMaterial
+			mesh.material = Canvas.monochromaticSolidMaterial
 		
+		} else if (Project.view_mode === 'colored_solid') {
+			mesh.material = Canvas.coloredSolidMaterials[0]
+
 		} else if (Project.view_mode === 'wireframe') {
 			mesh.material = Canvas.wireframeMaterial
 
 		} else {
 			var tex = Texture.getDefault();
 			if (tex && tex.uuid) {
-				mesh.material = Project.materials[tex.uuid]
+				mesh.material = tex.getMaterial()
 			} else {
 				mesh.material = Canvas.emptyMaterials[0]
 			}
@@ -345,7 +348,7 @@ BARS.defineActions(function() {
 				}
 			}
 
-			if (Group.selected) Group.selected.unselect()
+			unselectAllElements()
 			base_texture_mesh.select()
 			Undo.finishEdit('Add texture mesh', {outliner: true, elements: selected, selection: true});
 			Blockbench.dispatchEvent( 'add_texture_mesh', {object: base_texture_mesh} )

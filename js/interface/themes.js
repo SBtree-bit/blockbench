@@ -57,6 +57,7 @@ const CustomTheme = {
 							data.id = file.name.replace(/\.\w+$/, '');
 							if (!data.name) data.name = data.id;
 							data.sideloaded = true;
+							data.source = 'file';
 							data.path = file.path;
 							CustomTheme.themes.push(data);
 
@@ -114,7 +115,9 @@ const CustomTheme = {
 							try {
 								let {content} = await $.getJSON(file.git_url);
 								let theme = JSON.parse(patchedAtob(content));
+								if (theme.desktop_only && Blockbench.isMobile) return false;
 								theme.id = file.name.replace(/\.\w+/, '');
+								theme.source = 'repository';
 								CustomTheme.themes.push(theme);
 							} catch (err) {
 								console.error(err);
@@ -128,7 +131,12 @@ const CustomTheme = {
 					backup: '',
 					data: CustomTheme.data,
 					open_category: 'select',
-					themes: CustomTheme.themes
+					themes: CustomTheme.themes,
+					theme_icons: {
+						built_in: '',
+						repository: 'globe',
+						file: 'draft',
+					}
 				},
 				components: {
 					VuePrismEditor
@@ -185,6 +193,9 @@ const CustomTheme = {
 					},
 					getThemeThumbnailStyle(theme) {
 						let style = {};
+						for (let key in CustomTheme.defaultColors) {
+							style[`--color-${key}`] = CustomTheme.defaultColors[key];
+						}
 						for (let key in theme.colors) {
 							style[`--color-${key}`] = theme.colors[key];
 						}
@@ -193,6 +204,19 @@ const CustomTheme = {
 					openContextMenu(theme, event) {
 						if (!theme.sideloaded) return;
 						let menu = new Menu([
+							{
+								name: 'menu.texture.folder',
+								icon: 'folder',
+								condition: isApp,
+								click: () => {
+									if (!isApp || !theme.path) return;
+									if (!fs.existsSync(theme.path)) {
+										Blockbench.showQuickMessage('texture.error.file');
+										return;
+									}
+									shell.showItemInFolder(theme.path);
+								}
+							},
 							{
 								name: 'generic.remove',
 								icon: 'clear',
@@ -221,7 +245,7 @@ const CustomTheme = {
 						<div v-if="open_category == 'select'">
 							<div v-if="backup" class="theme_backup_bar" @click.stop="loadBackup()">
 								{{ tl('layout.restore_backup', [backup]) }}
-								<i class="material-icons" @click.stop="clearBackup()">clear</i>
+								<i class="material-icons icon" @click.stop="clearBackup()">clear</i>
 							</div>
 							<h2 class="i_b">${tl('layout.select')}</h2>
 
@@ -247,6 +271,9 @@ const CustomTheme = {
 										</div>
 									</div>
 									<div class="theme_name">{{ theme.name }}</div>
+									<div class="theme_type_icon">
+										<i class="material-icons icon">{{ theme_icons[theme.source] }}</i>
+									</div>
 									<div class="theme_author">{{ theme.author }}</div>
 								</div>
 							</div>
@@ -301,7 +328,8 @@ const CustomTheme = {
 						<div v-if="open_category == 'css'">
 							<h2 class="i_b">${tl('layout.css')}</h2>
 							<div id="css_editor">
-								<vue-prism-editor v-model="data.css" @change="customizeTheme(1, $event)" language="css" :line-numbers="true" />
+								<p v-if="data.css && data.css.length > 65000">Hidden due to performance limitations of the built-in CSS editor</p>
+								<vue-prism-editor v-else v-model="data.css" @change="customizeTheme(1, $event)" language="css" :line-numbers="true" />
 							</div>
 	
 						</div>
@@ -418,7 +446,7 @@ const CustomTheme = {
 			update(gizmo_colors.gizmo_hover, '--color-gizmohover');
 			update(Canvas.outlineMaterial.color, '--color-outline');
 			update(Canvas.ground_plane.material.color, '--color-ground');
-			update(Canvas.brush_outline.material.color, '--color-brush-outline');
+			update(Canvas.brush_outline.material.uniforms.color.value, '--color-brush-outline');
 			
 			Canvas.pivot_marker.children.forEach(c => {
 				c.updateColors();
@@ -504,6 +532,7 @@ const CustomTheme = {
 			if (!data.name) data.name = data.id;
 
 			data.sideloaded = true;
+			data.source = 'file';
 			data.path = file.path;
 
 			CustomTheme.loadTheme(data);

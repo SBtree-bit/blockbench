@@ -49,8 +49,8 @@ const Condition = function(condition, context) {
 			if (condition.selected.animation_controller_state === false && (AnimationController.selected?.selected_state)) return false;
 			if (condition.selected.keyframe === true && !(Keyframe.selected.length)) return false;
 			if (condition.selected.keyframe === false && (Keyframe.selected.length)) return false;
-			if (condition.selected.group === true && !Group.selected) return false;
-			if (condition.selected.group === false && Group.selected) return false;
+			if (condition.selected.group === true && !Group.first_selected) return false;
+			if (condition.selected.group === false && Group.first_selected) return false;
 			if (condition.selected.texture === true && !Texture.selected) return false;
 			if (condition.selected.texture === false && Texture.selected) return false;
 			if (condition.selected.element === true && !Outliner.selected.length) return false;
@@ -65,8 +65,8 @@ const Condition = function(condition, context) {
 			if (condition.selected.null_object === false && NullObject.selected.length) return false;
 			if (condition.selected.texture_mesh === true && !TextureMesh.selected.length) return false;
 			if (condition.selected.texture_mesh === false && TextureMesh.selected.length) return false;
-			if (condition.selected.outliner === true && !(Outliner.selected.length || Group.selected)) return false;
-			if (condition.selected.outliner === false && (Outliner.selected.length || Group.selected)) return false;
+			if (condition.selected.outliner === true && !(Outliner.selected.length || Group.first_selected)) return false;
+			if (condition.selected.outliner === false && (Outliner.selected.length || Group.first_selected)) return false;
 		}
 		if (condition.project && !Project) return false;
 
@@ -165,11 +165,25 @@ function removeEventListeners(el, events, func, option) {
 		el.removeEventListener(e, func, option)
 	})
 }
+function getStringWidth(string, size) {
+	let node = Interface.createElement('label', {style: 'position: absolute; visibility: hidden;'}, string);
+	if (size && size !== 16) {
+		node.style.fontSize = size + 'pt';
+	}
+	document.body.append(node);
+	let width = node.clientWidth;
+	node.remove();
+	return width + 1;
+};
 
 function patchedAtob(base64) {
-	return (typeof Buffer == 'function')
-		? Buffer.from(base64, 'base64').toString()
-		: atob(base64);
+	if (typeof Buffer == 'function') {
+		return Buffer.from(base64, 'base64').toString();
+	} else {
+		return decodeURIComponent(atob(base64).split('').map((c) => {
+			return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+		}).join(''));
+	}
 }
 
 function highestInObject(obj, inverse) {
@@ -395,8 +409,10 @@ var Merge = {
 		}
 	},
 	molang(obj, source, index) {
-		if (['string', 'number'].includes(typeof source[index])) {
+		if (typeof source[index] == 'string') {
 			obj[index] = source[index];
+		} else if (typeof source[index] == 'number') {
+			obj[index] = Math.roundTo(source[index], 9).toString();
 		}
 	},
 	boolean(obj, source, index, validate) {
@@ -475,6 +491,17 @@ Object.defineProperty(String.prototype, 'hashCode', {
 		return hash;
 	}
 });
+
+// HTML
+function isNodeUnderCursor(node, event) {
+	if (!node) return;
+	let rect = node.getBoundingClientRect();
+	return pointInRectangle([event.clientX, event.clientY], [rect.x, rect.y], [rect.right+1, rect.bottom+1]);
+}
+function findNodeUnderCursor(selector, event) {
+	return document.querySelectorAll(selector).entries().map(([i, node]) => node).find(node => isNodeUnderCursor(node, event));
+}
+
 
 //Color
 tinycolor.prototype.toInt = function() {
@@ -630,6 +657,22 @@ function pointInTriangle(pt, v1, v2, v3) {
 	let has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
 
 	return !(has_neg && has_pos);
+}
+function pointInPolygon(point, polygon_points) {
+	// ray-casting algorithm based on
+    // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+    let x = point[0], y = point[1], vs = polygon_points;
+    
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        let xi = vs[i][0], yi = vs[i][1];
+        let xj = vs[j][0], yj = vs[j][1];
+        
+        let intersect = ((yi > y) != (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
 }
 function lineIntersectsTriangle(l1, l2, v1, v2, v3) {
 	return intersectLines(l1, l2, v1, v2) || intersectLines(l1, l2, v2, v3) || intersectLines(l1, l2, v3, v1);

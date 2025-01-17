@@ -1,4 +1,4 @@
-const {app, BrowserWindow, Menu, ipcMain} = require('electron')
+const {app, BrowserWindow, Menu, ipcMain, shell} = require('electron')
 const path = require('path')
 const url = require('url')
 const { autoUpdater } = require('electron-updater');
@@ -250,6 +250,12 @@ ipcMain.on('request-color-picker', async (event, arg) => {
 		})
 	}
 })
+ipcMain.on('show-item-in-folder', async (event, path) => {
+	shell.showItemInFolder(path);
+})
+ipcMain.on('open-in-default-app', async (event, path) => {
+	shell.openPath(path);
+})
 
 app.on('ready', () => {
 
@@ -269,7 +275,7 @@ app.on('ready', () => {
 		}
 
 		app_was_loaded = true;
-		if (process.execPath && process.execPath.match(/electron\.\w+$/)) {
+		if (process.execPath && process.execPath.match(/node_modules[\\\/]electron/)) {
 
 			console.log('[Blockbench] App launched in development mode')
 	
